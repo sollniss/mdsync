@@ -245,7 +245,11 @@ fmt.Println("Hello")
 	}
 }
 
-func TestBugFixSeparateCounters(t *testing.T) {
+func TestStartSkipAndEndOffsetCountersAreIndependent(t *testing.T) {
+	// line1 is before start-at, so it's excluded.
+	// START triggers start-at; start-offset:2 skips line3 and line4.
+	// END is the first end-at match; end-offset:1 includes it and stops on the second match.
+	// There is no second END, so line6 and line7 are also included.
 	content := []byte("line1\nSTART\nline3\nline4\nEND\nline6\nline7\n")
 	startPat := compilePattern([]byte("START"))
 	endPat := compilePattern([]byte("END"))
