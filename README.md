@@ -40,6 +40,7 @@ The language tag after `MDSYNC:` sets the fence language. An optional `<!-- MDSY
 | `skip-after:` | `skip-after:"^import" count:3` | Skip N lines after each match |
 | `skip-between:` | `skip-between:"// BEGIN":"// END"` | Drop lines between two patterns |
 | `tab-size:` | `tab-size:4` | Convert leading tabs to N spaces (default 2; `0` strips tabs; negative preserves tabs) |
+| `region:` | `region:myFunc` | Extract a named `#region`/`#endregion` block (shortcut for `start-at`/`end-at`) |
 
 Patterns are Go regular expressions.
 
@@ -94,6 +95,28 @@ Lines between `// BEGIN OMIT` and `// END OMIT` are dropped; the rest of the fil
 ````
 
 `skip-after:"^import" count:5` drops the 5 lines following each line that starts with `import`.
+
+### Named regions
+
+Most editors support `#region`/`#endregion` markers for folding. Use `region:` to extract one by name:
+
+````markdown
+<!-- MDSYNC:go from:server.go region:handleRequest -->
+```go
+```
+````
+
+This is equivalent to `start-at:"#region handleRequest" end-at:"#endregion"`. In the source file:
+
+```go
+// #region handleRequest
+func handleRequest(w http.ResponseWriter, r *http.Request) {
+    // ...
+}
+// #endregion
+```
+
+The marker lines themselves are excluded from the output.
 
 ### Tab-indented sources
 

@@ -191,6 +191,21 @@ func TestParseDirectiveTabSize(t *testing.T) {
 	}
 }
 
+func TestParseDirectiveRegion(t *testing.T) {
+	input := `from:file.go region:myFunc`
+	l := newLexer([]byte(input))
+	r, err := parseDirective(l)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if r.startAt == nil || string(r.startAt.literal) != `#region myFunc\s*$` {
+		t.Errorf("expected startAt '#region myFunc\\s*$', got %v", r.startAt)
+	}
+	if r.endAt == nil || string(r.endAt.literal) != `#endregion\s*$` {
+		t.Errorf("expected endAt '#endregion\\s*$', got %v", r.endAt)
+	}
+}
+
 func TestCompiledPattern(t *testing.T) {
 	tests := []struct {
 		name    string

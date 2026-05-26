@@ -210,6 +210,31 @@ func TestTabSizeAllWhitespaceLine(t *testing.T) {
 	}
 }
 
+func TestRegion(t *testing.T) {
+	content := []byte("before\n// #region myFunc\nline1\nline2\n// #endregion\nafter\n")
+	startPat := compilePattern([]byte(`#region myFunc\s*$`))
+	endPat := compilePattern([]byte(`#endregion\s*$`))
+	r := &snippetRef{sourceFile: "test.go", startAt: &startPat, endAt: &endPat}
+	result := runFilterState(t, content, r)
+	expected := "line1\nline2"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestRegionMarkerInCode(t *testing.T) {
+	// A string literal containing "#endregion" must not terminate extraction early.
+	content := []byte("// #region myFunc\nline1\ns := \"// #endregion\"\nline3\n// #endregion\nafter\n")
+	startPat := compilePattern([]byte(`#region myFunc\s*$`))
+	endPat := compilePattern([]byte(`#endregion\s*$`))
+	r := &snippetRef{sourceFile: "test.go", startAt: &startPat, endAt: &endPat}
+	result := runFilterState(t, content, r)
+	expected := "line1\ns := \"// #endregion\"\nline3"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
 func TestDedent(t *testing.T) {
 	content := []byte("    line1\n    line2\n    line3\n")
 	r := &snippetRef{sourceFile: "test.go"}

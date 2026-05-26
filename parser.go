@@ -378,6 +378,16 @@ func parseDirective(l *lexer) (*snippetRef, error) {
 			}
 			r.endOffset = val
 
+		case "region":
+			val, err := l.expectValue()
+			if err != nil {
+				return nil, fmt.Errorf("attribute 'region': %w", err)
+			}
+			startPat := compilePattern([]byte(`#region ` + string(val) + `\s*$`))
+			endPat := compilePattern([]byte(`#endregion\s*$`))
+			r.startAt = &startPat
+			r.endAt = &endPat
+
 		case "tab-size":
 			val, err := l.expectInt()
 			if err != nil {
