@@ -132,6 +132,65 @@ func TestParseRefAttributeValueContainsGT(t *testing.T) {
 	}
 }
 
+func TestParseDirectiveTabSize(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		tabSize int
+		wantErr bool
+	}{
+		{
+			name:    "explicit 4",
+			input:   `from:file.go tab-size:4`,
+			tabSize: 4,
+		},
+		{
+			name:    "zero strips",
+			input:   `from:file.go tab-size:0`,
+			tabSize: 0,
+		},
+		{
+			name:    "negative disables",
+			input:   `from:file.go tab-size:-1`,
+			tabSize: -1,
+		},
+		{
+			name:    "default when absent",
+			input:   `from:file.go`,
+			tabSize: 2,
+		},
+		{
+			name:    "combined with other attributes",
+			input:   `from:file.go start-at:"func main" tab-size:4 end-at:"^}"`,
+			tabSize: 4,
+		},
+		{
+			name:    "malformed value",
+			input:   `from:file.go tab-size:abc`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := newLexer([]byte(tt.input))
+			r, err := parseDirective(l)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if r.tabSize != tt.tabSize {
+				t.Errorf("expected tabSize %d, got %d", tt.tabSize, r.tabSize)
+			}
+		})
+	}
+}
+
 func TestCompiledPattern(t *testing.T) {
 	tests := []struct {
 		name    string

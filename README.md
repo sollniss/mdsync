@@ -39,6 +39,7 @@ The language tag after `MDSYNC:` sets the fence language. An optional `<!-- MDSY
 | `skip-match:` | `skip-match:"//nolint"` | Drop every line matching the pattern |
 | `skip-after:` | `skip-after:"^import" count:3` | Skip N lines after each match |
 | `skip-between:` | `skip-between:"// BEGIN":"// END"` | Drop lines between two patterns |
+| `tab-size:` | `tab-size:4` | Convert leading tabs to N spaces (default 2; `0` strips tabs; negative preserves tabs) |
 
 Patterns are Go regular expressions.
 
@@ -93,3 +94,15 @@ Lines between `// BEGIN OMIT` and `// END OMIT` are dropped; the rest of the fil
 ````
 
 `skip-after:"^import" count:5` drops the 5 lines following each line that starts with `import`.
+
+### Tab-indented sources
+
+Most markdown renderers discard tab characters, collapsing indentation. Use `tab-size:` to convert leading tabs to spaces:
+
+````markdown
+<!-- MDSYNC:go from:server.go start-at:"func handleRequest" end-at:"^}" end-offset:1 tab-size:4 -->
+```go
+```
+````
+
+Each leading tab becomes 4 spaces. Omitting `tab-size:` defaults to 2 spaces per tab. Use `tab-size:0` to strip leading tabs entirely, or a negative value to preserve them as-is.

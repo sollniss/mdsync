@@ -19,6 +19,7 @@ type snippetRef struct {
 	startOffset int
 	endAt       *compiledPattern
 	endOffset   int
+	tabSize     int
 }
 
 type skipAfterRule struct {
@@ -113,10 +114,10 @@ func Process(r io.Reader, w io.Writer) error {
 	bw := bufio.NewWriter(w)
 
 	var (
-		comment    []byte
-		ref        *snippetRef
+		comment     []byte
+		ref         *snippetRef
 		fenceMarker []byte
-		state      = stNormal
+		state       = stNormal
 	)
 
 	for scanner.Scan() {
@@ -237,7 +238,7 @@ func parseRef(comment []byte) (*snippetRef, error) {
 }
 
 func parseDirective(l *lexer) (*snippetRef, error) {
-	r := &snippetRef{}
+	r := &snippetRef{tabSize: 2}
 
 	tok, err := l.peek()
 	if err != nil {
@@ -376,6 +377,13 @@ func parseDirective(l *lexer) (*snippetRef, error) {
 				return nil, fmt.Errorf("attribute 'end-offset': %w", err)
 			}
 			r.endOffset = val
+
+		case "tab-size":
+			val, err := l.expectInt()
+			if err != nil {
+				return nil, fmt.Errorf("attribute 'tab-size': %w", err)
+			}
+			r.tabSize = val
 
 		default:
 			return nil, fmt.Errorf("unknown attribute %q at position %d", key, tok.pos)

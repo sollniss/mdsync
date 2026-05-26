@@ -236,6 +236,104 @@ func TestFilterStateSkipBetween(t *testing.T) {
 	}
 }
 
+func runFilterState(t *testing.T, content []byte, r *snippetRef) string {
+	t.Helper()
+	state := newFilterState(r)
+	lines := bytes.Split(content, []byte{'\n'})
+	pos := 0
+	for i, line := range lines[:len(lines)-1] {
+		lineEnd := pos + len(line)
+		state.processLine(line, pos, lineEnd, i, content)
+		pos = lineEnd + 1
+	}
+	return filterResult(state, content)
+}
+
+func TestTabSizeDefault(t *testing.T) {
+	content := []byte("\tline1\n\tline2\n")
+	r := &snippetRef{sourceFile: "test.go", tabSize: 2}
+	result := runFilterState(t, content, r)
+	expected := "line1\nline2"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestTabSizeExplicit4(t *testing.T) {
+	content := []byte("\tfunc foo() {\n\t\treturn 1\n\t}\n")
+	r := &snippetRef{sourceFile: "test.go", tabSize: 4}
+	result := runFilterState(t, content, r)
+	// minIndent is 4 (one leading tab at depth 1); inner lines have 8 → stripped to 4 spaces
+	expected := "func foo() {\n    return 1\n}"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestTabSizeZeroStrips(t *testing.T) {
+	content := []byte("\t\tline1\n\tline2\n")
+	r := &snippetRef{sourceFile: "test.go", tabSize: 0}
+	result := runFilterState(t, content, r)
+	expected := "line1\nline2"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestTabSizeNegativeDisables(t *testing.T) {
+	content := []byte("\tline1\n\tline2\n")
+	r := &snippetRef{sourceFile: "test.go", tabSize: -1}
+	result := runFilterState(t, content, r)
+	// tabs kept raw; minIndent is 1 byte; both tab prefixes stripped
+	expected := "line1\nline2"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestTabSizeMidLineTabsPreserved(t *testing.T) {
+	content := []byte("\tfoo\tbar\n")
+	r := &snippetRef{sourceFile: "test.go", tabSize: 2}
+	result := runFilterState(t, content, r)
+	// leading tab → 2 spaces, minIndent 2, slice 2 → "foo\tbar"
+	expected := "foo\tbar"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestTabSizeMixedTabsAndSpaces(t *testing.T) {
+	// tab counts as 2 spaces; both lines have leading width 2 → minIndent 2 → both flush left
+	content := []byte("\tfoo\n  bar\n")
+	r := &snippetRef{sourceFile: "test.go", tabSize: 2}
+	result := runFilterState(t, content, r)
+	expected := "foo\nbar"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestTabSizeMixedUneven(t *testing.T) {
+	// tab width 2, spaces 4 → widths 2 and 4, minIndent 2, inner line retains 2 spaces
+	content := []byte("\tfoo\n    bar\n")
+	r := &snippetRef{sourceFile: "test.go", tabSize: 2}
+	result := runFilterState(t, content, r)
+	expected := "foo\n  bar"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestTabSizeAllWhitespaceLine(t *testing.T) {
+	content := []byte("\tline1\n\t\n\tline3\n")
+	r := &snippetRef{sourceFile: "test.go", tabSize: 2}
+	result := runFilterState(t, content, r)
+	expected := "line1\n\nline3"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
 func TestDedent(t *testing.T) {
 	content := []byte("    line1\n    line2\n    line3\n")
 	r := &snippetRef{sourceFile: "test.go"}

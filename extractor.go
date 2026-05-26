@@ -19,6 +19,7 @@ type filterState struct {
 	hasContent    bool
 	ringBuf       []lineRange
 	ringSize      int
+	tabSize       int
 }
 
 type lineRange struct {
@@ -32,6 +33,7 @@ func newFilterState(r *snippetRef) *filterState {
 		started:       r.startAt == nil,
 		skipUntilLine: -1,
 		minIndent:     -1,
+		tabSize:       r.tabSize,
 	}
 	if r.startAt != nil && r.startOffset < 0 {
 		s.ringSize = -r.startOffset
@@ -127,19 +129,63 @@ func (s *filterState) acceptLine(line []byte, lineStart, lineEnd int) {
 
 	trimmed := bytes.TrimSpace(line)
 	if len(trimmed) > 0 {
-		indent := 0
-		for _, b := range line {
-			if b == ' ' || b == '\t' {
-				indent++
-			} else {
-				break
-			}
-		}
+		indent := leadingIndentWidth(line, s.tabSize)
 		if !s.hasContent || indent < s.minIndent {
 			s.minIndent = indent
 			s.hasContent = true
 		}
 	}
+}
+
+// leadingIndentWidth returns the leading whitespace width in conversion-aware units.
+// When tabSize >= 0, tabs contribute tabSize units and spaces contribute 1.
+// When tabSize < 0, every leading whitespace byte contributes 1 (raw byte counting).
+func leadingIndentWidth(line []byte, tabSize int) int {
+	w := 0
+	for _, b := range line {
+		switch b {
+		case ' ':
+			w++
+		case '\t':
+			if tabSize < 0 {
+				w++
+			} else {
+				w += tabSize
+			}
+		default:
+			return w
+		}
+	}
+	return w
+}
+
+// convertLeadingTabs returns line with leading tabs replaced according to tabSize.
+// tabSize < 0: line returned unchanged.
+// tabSize == 0: leading tabs stripped; leading spaces preserved.
+// tabSize > 0: each leading tab becomes tabSize spaces.
+// Tabs after the first non-whitespace byte are never touched.
+func convertLeadingTabs(line []byte, tabSize int) []byte {
+	if tabSize < 0 {
+		return line
+	}
+	i := 0
+	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	if bytes.IndexByte(line[:i], '\t') == -1 {
+		return line
+	}
+	pad := bytes.Repeat([]byte{' '}, tabSize)
+	out := make([]byte, 0, i*max(1, tabSize)+(len(line)-i))
+	for j := 0; j < i; j++ {
+		if line[j] == '\t' {
+			out = append(out, pad...)
+		} else {
+			out = append(out, ' ')
+		}
+	}
+	out = append(out, line[i:]...)
+	return out
 }
 
 func (s *filterState) flushRingBuffer(content []byte) {
@@ -179,12 +225,13 @@ func (s *filterState) writeTo(w io.Writer, content []byte) (bool, error) {
 		}
 		pendingNewlines = 0
 		needNewline = true
-		if len(line) > minIndent {
-			if _, err := w.Write(line[minIndent:]); err != nil {
+		converted := convertLeadingTabs(line, s.tabSize)
+		if len(converted) > minIndent {
+			if _, err := w.Write(converted[minIndent:]); err != nil {
 				return true, err
 			}
 		} else {
-			if _, err := w.Write(line); err != nil {
+			if _, err := w.Write(converted); err != nil {
 				return true, err
 			}
 		}
@@ -192,4 +239,3 @@ func (s *filterState) writeTo(w io.Writer, content []byte) (bool, error) {
 
 	return true, nil
 }
-

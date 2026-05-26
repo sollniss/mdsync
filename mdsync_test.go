@@ -273,3 +273,52 @@ func TestBugFixSeparateCounters(t *testing.T) {
 		t.Errorf("expected %q, got %q", expected, buf.String())
 	}
 }
+
+func TestTabSize(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	sourceContent := []byte("\tline1\n\t\tline2\n")
+	if err := os.WriteFile(filepath.Join(tmpDir, "src.go"), sourceContent, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mustChdir(t, tmpDir)
+
+	input := "<!-- MDSYNC from:src.go tab-size:4 -->\n```\n```\n"
+	expected := "<!-- MDSYNC from:src.go tab-size:4 -->\n```\nline1\n    line2\n```\n"
+
+	var buf bytes.Buffer
+	if err := Process(bytes.NewReader([]byte(input)), &buf); err != nil {
+		t.Fatal(err)
+	}
+
+	if buf.String() != expected {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, buf.String())
+	}
+}
+
+func TestTabSizeDisabled(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Two lines with different indentation: one tab and two tabs.
+	// With tab-size:-1, tabs are preserved raw; minIndent is 1 (raw byte), so both
+	// lines get their leading single tab stripped; the second line retains the second tab.
+	sourceContent := []byte("\tfoo\n\t\tbar\n")
+	if err := os.WriteFile(filepath.Join(tmpDir, "src.go"), sourceContent, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mustChdir(t, tmpDir)
+
+	input := "<!-- MDSYNC from:src.go tab-size:-1 -->\n```\n```\n"
+	expected := "<!-- MDSYNC from:src.go tab-size:-1 -->\n```\nfoo\n\tbar\n```\n"
+
+	var buf bytes.Buffer
+	if err := Process(bytes.NewReader([]byte(input)), &buf); err != nil {
+		t.Fatal(err)
+	}
+
+	if buf.String() != expected {
+		t.Errorf("expected:\n%q\ngot:\n%q", expected, buf.String())
+	}
+}
